@@ -1,0 +1,19 @@
+# dependencies
+node_modules/
+
+# build output
+dist/
+
+# packaged app bundle for inspection
+app.asar.unpacked/
+
+# Windows build helper (afterPack falls back to the electron-builder cache if missing)
+scripts/rcedit-x64.exe
+
+# local scratch / debug dumps
+_*.txt
+*.log
+
+# machine-specific helper scripts (logo conversion, desktop shortcut)
+convert-dph-logo.ps1
+make-desktop-shortcut.ps1

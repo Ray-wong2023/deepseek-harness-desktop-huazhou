@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; script-src 'self'; connect-src 'none'" />
+  <title>DeepSeek Desktop</title>
+  <link rel="stylesheet" href="../../node_modules/@xterm/xterm/css/xterm.css" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="app">
+    <aside id="sidebar">
+      <div class="brand">
+        <img id="brandLogo" src="../../build/icon.png" alt="DeepSeek whale" />
+        <div class="brandText">
+          <span class="brandName">DeepSeek Desktop</span>
+          <span class="brandSub">Codex-style · whale edition</span>
+        </div>
+      </div>
+      <button id="newChatBtn" class="newChat">＋ New chat</button>
+      <div class="workspaceHeader">
+        <input id="wsSearch" class="wsSearch" type="text" placeholder="🔍 搜索对话…" />
+        <button id="viewOptionsBtn" class="viewBtn" title="视图选项：分组方式 / 排序方式">▦ 视图选项</button>
+        <button id="newProjectBtn" class="wsNewProject" title="新建项目文件夹">＋</button>
+        <div id="viewMenu" class="viewMenu hidden">
+          <div class="viewGroupTitle">分组方式</div>
+          <button class="viewOpt" data-view="groupBy" data-val="project">📁 项目分组</button>
+          <button class="viewOpt" data-view="groupBy" data-val="flat">📃 单列表</button>
+          <div class="viewGroupTitle">排序方式</div>
+          <button class="viewOpt" data-view="sortBy" data-val="recent">🕒 最近更新</button>
+          <button class="viewOpt" data-view="sortBy" data-val="manual">✋ 手动排序</button>
+        </div>
+      </div>
+      <div id="sessionList"></div>
+      <div class="sidebarFooter">
+        <button id="settingsBtn" class="footerBtn">⚙ Settings</button>
+      </div>
+    </aside>
+
+    <main id="main">
+      <div id="messages"></div>
+      <div id="activityBar" class="hidden">
+        <div id="activityHead" class="activityHead"><span id="activityStatus"></span><span class="activityChevron">▾</span></div>
+        <div id="activityBody" class="activityBody"></div>
+      </div>
+      <div id="composer">
+        <div id="composerTop">
+          <button id="skillBadgeBtn" class="skillBadgeBtn" title="当前技能（点击切换）"></button>
+          <span class="composerLabel">模型</span>
+          <select id="composerModel" class="skillSelect" title="切换模型"></select>
+          <span class="composerLabel">思考</span>
+          <select id="composerThinking" class="skillSelect" title="思考等级">
+            <option value="off">off</option>
+            <option value="low">low</option>
+            <option value="medium">medium</option>
+            <option value="high">high</option>
+            <option value="max">max</option>
+          </select>
+          <select id="approvalBadge" class="approvalBadge" title="任务权限：点击切换">
+            <option value="ask">🔴 请求批准</option>
+            <option value="smart">🟡 帮我批准</option>
+            <option value="full">🟢 完全访问</option>
+          </select>
+          <span class="composerSpacer"></span>
+          <span id="toolsBadge" class="modelBadge" title="已启用的工具插件数量">🛠 0 工具</span>
+        </div>
+        <div id="skillMenu" class="skillMenu hidden"></div>
+        <textarea id="input" rows="1" placeholder="Ask DeepSeek…  （Enter 发送 / Shift+Enter 换行）"></textarea>
+        <div id="composerBar">
+          <span id="modelBadge" class="modelBadge">deepseek-chat</span>
+          <span id="ctxText" class="ctxText" title="上下文使用情况">📊 0 / 0</span>
+          <div class="composerSpacer"></div>
+          <div id="ctxRingWrap" class="ctxRingWrap" title="上下文占用">
+            <svg id="ctxRing" width="22" height="22" viewBox="0 0 22 22">
+              <circle cx="11" cy="11" r="9" fill="none" stroke="var(--border)" stroke-width="3" />
+              <circle id="ctxRingArc" cx="11" cy="11" r="9" fill="none" stroke="var(--green)" stroke-width="3"
+                stroke-linecap="round" stroke-dasharray="0 56.5" transform="rotate(-90 11 11)" />
+            </svg>
+            <span id="ctxRingLabel" class="ctxRingLabel">0%</span>
+          </div>
+          <button id="terminalToggle" class="barBtn" title="Toggle terminal">▤ Terminal</button>
+          <button id="sendBtn" class="sendBtn">Send ↵</button>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div id="terminalPanel" class="hidden">
+    <div class="termHeader">
+      <span class="termTitle">◈ Terminal — cmd (workspace)</span>
+      <span id="termStatus" class="termStatus">idle</span>
+      <div class="termSpacer"></div>
+      <button id="termKillBtn" class="barBtn" title="Kill running command">✕ kill</button>
+      <button id="termCloseBtn" class="barBtn" title="Close terminal">—</button>
+    </div>
+    <div id="terminal"></div>
+  </div>
+
+  <div id="ctxPopover" class="ctxPopover hidden"></div>
+
+  <div id="promptModal" class="modal hidden">
+    <div class="modalCard" style="width:380px">
+      <h2 id="promptTitle">输入</h2>
+      <input id="promptInput" type="text" placeholder="" />
+      <div class="modalActions">
+        <span class="composerSpacer"></span>
+        <button id="promptCancel" class="barBtn">取消</button>
+        <button id="promptOk" class="sendBtn">确定</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="settingsModal" class="modal hidden">
+    <div class="modalCard modalWide">
+      <h2>Settings</h2>
+      <div class="settingsTabs">
+        <button class="tabBtn active" data-tab="general">⚙ 通用</button>
+        <button class="tabBtn" data-tab="appearance">🎨 外观</button>
+        <button class="tabBtn" data-tab="config">🛡 配置</button>
+        <button class="tabBtn" data-tab="personal">🎭 个性化</button>
+        <button class="tabBtn" data-tab="skills">🎯 技能</button>
+        <button class="tabBtn" data-tab="plugins">🔌 插件</button>
+        <button class="tabBtn" data-tab="archived">📦 已归档</button>
+      </div>
+
+      <!-- ============ 通用 ============ -->
+      <div class="tabPane" id="tab-general">
+        <div class="pvRow">
+          <label class="pvSel">API Provider
+            <select id="setProvider"></select>
+          </label>
+          <button id="pvAddBtn" class="barBtn" title="添加第三方 OpenAI 兼容 API">＋ 添加 API</button>
+        </div>
+        <div id="providerEdit" class="pvEdit">
+          <label>名称
+            <input id="pvName" type="text" placeholder="例如：我的中转站" />
+          </label>
+          <label>Base URL（OpenAI 兼容，如 https://xxx/v1）
+            <input id="pvBaseUrl" type="text" placeholder="https://api.example.com/v1" />
+          </label>
+          <label>API Key
+            <input id="pvApiKey" type="password" placeholder="sk-…（Ollama 可任意填）" autocomplete="off" />
+          </label>
+          <div class="pvRow">
+            <label class="pvSel">模型
+              <input id="pvModel" type="text" list="pvModelList" placeholder="模型 ID" />
+              <datalist id="pvModelList"></datalist>
+            </label>
+            <label class="pvSel" title="思考等级：off=不传 reasoning_effort；low/medium/high/max 随模型支持度生效">思考等级
+              <select id="pvThinking">
+                <option value="off">off（不思考）</option>
+                <option value="low">low（轻量）</option>
+                <option value="medium" selected>medium（标准）</option>
+                <option value="high">high（深度）</option>
+                <option value="max">max（极限）</option>
+              </select>
+            </label>
+            <button id="pvTestBtn" class="barBtn" title="测试连接并拉取可用模型">🔌 测试连接</button>
+          </div>
+          <label>可用模型（每行一个，保存后出现在模型下拉）
+            <textarea id="pvModels" rows="3" placeholder="deepseek-chat&#10;deepseek-reasoner"></textarea>
+          </label>
+        </div>
+        <div class="pvActions">
+          <span id="pvTestResult" class="pvTestResult"></span>
+          <span class="composerSpacer"></span>
+          <button id="pvDeleteBtn" class="barBtn danger" title="删除当前提供商">🗑 删除</button>
+        </div>
+        <label>Temperature
+          <input id="setTemp" type="number" min="0" max="2" step="0.1" value="0.7" />
+        </label>
+        <label>System prompt
+          <textarea id="setSysPrompt" rows="4"></textarea>
+        </label>
+      </div>
+
+      <!-- ============ 外观 ============ -->
+      <div class="tabPane hidden" id="tab-appearance">
+        <div class="pvRow">
+          <label class="pvSel">主题
+            <select id="setThemeMode">
+              <option value="dark">深色（默认）</option>
+              <option value="sky">蓝白</option>
+              <option value="light">浅色</option>
+              <option value="ocean">深海蓝</option>
+              <option value="forest">森林绿</option>
+            </select>
+          </label>
+          <label class="pvSel">背景颜色
+            <div class="pvRow">
+              <input id="setBgColor" type="color" value="#0b0e14" style="width:60px;height:34px;padding:2px" />
+              <button id="bgResetBtn" class="barBtn" title="恢复主题默认背景">默认</button>
+            </div>
+          </label>
+        </div>
+        <label>强调颜色
+          <div id="accentPicker" class="accentPicker">
+            <button class="accentSwatch" data-accent="blue" style="background:#4d6bfe" title="蓝"></button>
+            <button class="accentSwatch" data-accent="violet" style="background:#8b5cf6" title="紫"></button>
+            <button class="accentSwatch" data-accent="cyan" style="background:#22d3ee" title="青"></button>
+            <button class="accentSwatch" data-accent="green" style="background:#3ecf8e" title="绿"></button>
+            <button class="accentSwatch" data-accent="amber" style="background:#f59e0b" title="琥珀"></button>
+            <button class="accentSwatch" data-accent="rose" style="background:#fb7185" title="玫瑰"></button>
+            <input id="accentCustom" type="color" value="#4d6bfe" style="width:30px;height:30px;padding:0;border-radius:50%" title="自定义强调色" />
+          </div>
+        </label>
+        <div class="pvRow">
+          <label class="pvSel">UI 字体
+            <select id="setUiFont">
+              <option value="">系统默认</option>
+              <option value="'Segoe UI', 'Microsoft YaHei', system-ui, sans-serif">微软雅黑</option>
+              <option value="'PingFang SC', 'Microsoft YaHei', sans-serif">苹方</option>
+              <option value="'Helvetica Neue', Arial, sans-serif">Helvetica</option>
+            </select>
+          </label>
+          <label class="pvSel">代码字体
+            <select id="setCodeFont">
+              <option value="'Cascadia Code', Consolas, monospace">Cascadia Code</option>
+              <option value="Consolas, 'Courier New', monospace">Consolas</option>
+              <option value="'JetBrains Mono', Consolas, monospace">JetBrains Mono</option>
+              <option value="'Fira Code', Consolas, monospace">Fira Code</option>
+              <option value="'Courier New', monospace">Courier New</option>
+            </select>
+          </label>
+        </div>
+        <div class="pvRow">
+          <label class="pvSel">UI 字号
+            <select id="setUiFontSize">
+              <option value="12">12px（紧凑）</option>
+              <option value="13">13px</option>
+              <option value="14">14px（默认）</option>
+              <option value="15">15px</option>
+              <option value="16">16px（舒适）</option>
+            </select>
+          </label>
+          <label class="pvSel">代码字号
+            <select id="setCodeFontSize">
+              <option value="11">11px</option>
+              <option value="12">12px</option>
+              <option value="13">13px（默认）</option>
+              <option value="14">14px</option>
+              <option value="15">15px</option>
+            </select>
+          </label>
+        </div>
+        <div class="pvRow">
+          <label class="pvSel">页面透明度
+            <input id="setOpacity" type="range" min="80" max="100" step="1" value="100" />
+            <span id="opacityVal" class="pvTestResult">100%</span>
+          </label>
+          <label class="pvSel">页面对比度
+            <input id="setContrast" type="range" min="85" max="115" step="1" value="100" />
+            <span id="contrastVal" class="pvTestResult">100%</span>
+          </label>
+        </div>
+        <div class="appearancePreview">
+          <div class="apvTitle">预览</div>
+          <div class="apvCode">const whale = '🐋' // DeepSeek Desktop</div>
+        </div>
+      </div>
+
+      <!-- ============ 配置 ============ -->
+      <div class="tabPane hidden" id="tab-config">
+        <label>批准策略（任务权限）
+          <div class="approvalOptions">
+            <label class="approvalOpt"><input type="radio" name="approvalPolicy" value="ask" />
+              <b>🔴 请求批准</b> — 编辑外部文件和访问网络等操作始终询问，得到允许后才执行</label>
+            <label class="approvalOpt"><input type="radio" name="approvalPolicy" value="smart" />
+              <b>🟡 帮我批准</b> — 常规操作自动执行，检测到高风险行为（删除/格式化/系统级命令等）需批准</label>
+            <label class="approvalOpt"><input type="radio" name="approvalPolicy" value="full" />
+              <b>🟢 完全访问</b> — 不受限制地访问互联网和电脑上的所有文件</label>
+          </div>
+        </label>
+        <label>沙盒设置 — 工作区目录（工具读写限制在此目录内）
+          <input id="setWorkspace" type="text" placeholder="C:\Users\xxx\workspace" />
+        </label>
+        <label class="pvRow" style="flex-direction:row;align-items:center;gap:8px">
+          <input id="setRestrictTools" type="checkbox" checked style="width:auto" />
+          限制 AI 工具只能读写工作区内文件（关闭后 AI 可访问全盘）
+        </label>
+        <label>推理摘要（思考过程显示方式）
+          <select id="setReasoningDisplay">
+            <option value="full">完整显示思考过程</option>
+            <option value="summary">仅显示摘要（前 200 字）</option>
+            <option value="off">不显示思考过程</option>
+          </select>
+        </label>
+        <label>输出详细程度
+          <select id="setVerbosity">
+            <option value="concise">简洁</option>
+            <option value="standard">标准</option>
+            <option value="detailed">详细</option>
+          </select>
+        </label>
+      </div>
+
+      <!-- ============ 个性化 ============ -->
+      <div class="tabPane hidden" id="tab-personal">
+        <label>自定义指令 — 向 DeepSeek 提供适用于此主机上所有聊天的额外说明和上下文
+          <textarea id="setCustomInstructions" rows="5" placeholder="例如：&#10;- 我是后端工程师，工作目录是 D:\projects&#10;- 代码优先用 Python 写&#10;- 涉及部署时提醒我先备份"></textarea>
+        </label>
+        <label>记忆 — 在此电脑上如何收集、保留和整合本地记忆
+          <select id="setMemoryMode">
+            <option value="off">关闭记忆</option>
+            <option value="manual">手动记忆（我维护下面的记忆内容）</option>
+          </select>
+        </label>
+        <label>记忆内容（会注入到所有对话，作为长期上下文）
+          <textarea id="setMemoryContent" rows="4" placeholder="长期记忆：项目的技术栈、约定、偏好…"></textarea>
+        </label>
+        <label>个性 — 回复的语气与角色
+          <select id="setPersona">
+            <option value="warm">亲切（warm）</option>
+            <option value="pragmatic">务实（pragmatic）</option>
+            <option value="professional">专业（professional）</option>
+            <option value="humorous">幽默（humorous）</option>
+            <option value="concise">简洁（concise）</option>
+          </select>
+        </label>
+      </div>
+
+      <!-- ============ 技能 ============ -->
+      <div class="tabPane hidden" id="tab-skills">
+        <div class="pvRow">
+          <label class="pvSel">当前技能（对话时启用）
+            <select id="setActiveSkill"></select>
+          </label>
+          <button id="skillAddBtn" class="barBtn">＋ 自定义技能</button>
+          <button id="skillCreatorBtn" class="barBtn">✨ Skill Creator</button>
+          <button id="selfImproveBtn" class="barBtn">🧬 Self-Improve</button>
+        </div>
+        <div class="claudeImport">
+          <div class="pvRow">
+            <label class="pvSel">Claude Code 技能目录
+              <input id="claudeSkillsDir" type="text" placeholder="C:\Users\xxx\.claude\skills" />
+            </label>
+            <button id="claudeScanBtn" class="barBtn">🔍 扫描</button>
+            <button id="claudeImportBtn" class="barBtn">📥 全部导入</button>
+          </div>
+          <div id="claudeScanResult" class="pvTestResult"></div>
+        </div>
+        <label>技能搜索（1400+ 已导入时用）
+          <input id="skillSearch" type="text" placeholder="输入关键字过滤…" />
+        </label>
+        <div id="skillList" class="skillList"></div>
+      </div>
+
+      <!-- ============ 插件 ============ -->
+      <div class="tabPane hidden" id="tab-plugins">
+        <div class="pvRow">
+          <label class="pvSel">AI 工具执行
+            <select id="setAutoRunTools">
+              <option value="true">自动执行（Codex 风格）</option>
+              <option value="false">每次确认</option>
+            </select>
+          </label>
+          <button id="pluginAddBtn" class="barBtn">＋ 添加 MCP 插件</button>
+        </div>
+        <div id="pluginList" class="pluginList"></div>
+        <div class="pluginHint">MCP 插件示例：stdio → <code>npx -y @modelcontextprotocol/server-filesystem D:\some\folder</code>；http → SSE/Streamable 端点 URL。启用后重启会话生效。</div>
+      </div>
+
+      <!-- ============ 已归档 ============ -->
+      <div class="tabPane hidden" id="tab-archived">
+        <div class="pvRow">
+          <label class="pvSel">已归档会话（可恢复或删除）
+          </label>
+          <span class="composerSpacer"></span>
+          <button id="archiveRefreshBtn" class="barBtn">↻ 刷新</button>
+        </div>
+        <div id="archiveList" class="skillList"></div>
+        <div class="pluginHint">归档用于存放已完成的任务对话，方便回溯。主列表只显示未归档会话。</div>
+      </div>
+
+      <div class="modalActions">
+        <span id="settingsStatus" class="settingsStatus"></span>
+        <button id="settingsSave" class="sendBtn">Save</button>
+        <button id="settingsCancel" class="barBtn">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../../node_modules/@xterm/xterm/lib/xterm.js"></script>
+  <script src="../../node_modules/@xterm/addon-fit/lib/addon-fit.js"></script>
+  <script src="../../node_modules/prismjs/prism.js"></script>
+  <script src="../../node_modules/prismjs/components/prism-bash.min.js"></script>
+  <script src="../../node_modules/prismjs/components/prism-powershell.min.js"></script>
+  <script src="../../node_modules/prismjs/components/prism-python.min.js"></script>
+  <script src="../../node_modules/prismjs/components/prism-typescript.min.js"></script>
+  <script src="../../node_modules/prismjs/components/prism-json.min.js"></script>
+  <script src="../../node_modules/prismjs/components/prism-sql.min.js"></script>
+  <script src="../../node_modules/prismjs/components/prism-go.min.js"></script>
+  <script src="../../node_modules/prismjs/components/prism-rust.min.js"></script>
+  <script src="../../node_modules/prismjs/components/prism-yaml.min.js"></script>
+  <script src="../../node_modules/prismjs/components/prism-markdown.min.js"></script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

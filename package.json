@@ -1,0 +1,73 @@
+{
+  "name": "deepseek-desktop",
+  "version": "1.5.8",
+  "description": "DeepSeek Desktop - Codex-style AI coding assistant with black whale logo",
+  "main": "src/main.js",
+  "author": "DeepSeek",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win portable",
+    "dist:installer": "electron-builder --win nsis",
+    "dist:all": "electron-builder --win"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "@xterm/addon-fit": "^0.10.0",
+    "@xterm/xterm": "^5.5.0",
+    "dompurify": "^3.2.3",
+    "marked": "^15.0.4",
+    "prismjs": "^1.30.0"
+  },
+  "build": {
+    "appId": "com.deepseek.desktop",
+    "productName": "DeepSeek Desktop",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "src/**/*",
+      "build/icon.png",
+      "build/icon.ico",
+      "node_modules/@modelcontextprotocol/**/*",
+      "node_modules/@xterm/**/*",
+      "node_modules/dompurify/**/*",
+      "node_modules/marked/**/*",
+      "node_modules/prismjs/**/*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "DeepSeek Desktop"
+    },
+    "afterPack": "scripts/afterPack.js",
+    "portable": {
+      "artifactName": "DeepSeek-Desktop-${version}-portable.exe"
+    }
+  }
+}
